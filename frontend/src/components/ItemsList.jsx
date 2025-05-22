@@ -10,7 +10,13 @@ import {
   IconButton,
   useToast,
 } from "@chakra-ui/react";
-import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
+import {
+  AddIcon,
+  DeleteIcon,
+  EditIcon,
+  CheckIcon,
+  CloseIcon,
+} from "@chakra-ui/icons";
 import {
   collection,
   query,
@@ -19,9 +25,15 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../firsebase.js";
-import { setItems, addItem, removeItem } from "../slices/itemsSlice";
+import {
+  setItems,
+  addItem,
+  removeItem,
+  updateItem,
+} from "../slices/itemsSlice";
 
 const ItemsList = ({ userId }) => {
   const dispatch = useDispatch();
@@ -32,32 +44,24 @@ const ItemsList = ({ userId }) => {
   const [newItemAmount, setNewItemAmount] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [editingId, setEditingId] = useState(null);
+  const [editedName, setEditedName] = useState("");
+  const [editedAmount, setEditedAmount] = useState("");
+
   useEffect(() => {
     if (!userId) return;
 
-    console.log("Setting up items listener for userId:", userId);
-
     const q = query(collection(db, "items"), where("userId", "==", userId));
-
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        console.log(
-          "Items snapshot received, docs count:",
-          snapshot.docs.length
-        );
-
-        const itemsData = snapshot.docs.map((doc) => {
-          const data = { id: doc.id, ...doc.data() };
-          console.log("Item data:", data);
-          return data;
-        });
-
-        console.log("All items data:", itemsData);
+        const itemsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         dispatch(setItems(itemsData));
       },
       (error) => {
-        console.error("Error fetching items:", error);
         toast({
           title: "Error fetching items",
           description: error.message,
@@ -85,7 +89,7 @@ const ItemsList = ({ userId }) => {
       const itemData = {
         name: newItemName.trim(),
         amount: parseFloat(newItemAmount),
-        userId: userId,
+        userId,
         createdAt: new Date(),
       };
 
@@ -93,14 +97,12 @@ const ItemsList = ({ userId }) => {
 
       setNewItemName("");
       setNewItemAmount("");
-
       toast({
         title: "Item added successfully",
         status: "success",
         duration: 2000,
       });
     } catch (error) {
-      console.error("Error adding item:", error);
       toast({
         title: "Error adding item",
         description: error.message,
@@ -121,9 +123,47 @@ const ItemsList = ({ userId }) => {
         duration: 2000,
       });
     } catch (error) {
-      console.error("Error deleting item:", error);
       toast({
         title: "Error deleting item",
+        description: error.message,
+        status: "error",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingId(item.id);
+    setEditedName(item.name);
+    setEditedAmount(item.amount);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditedName("");
+    setEditedAmount("");
+  };
+
+  const handleUpdateItem = async (item) => {
+    try {
+      const updatedItem = {
+        ...item,
+        name: editedName,
+        amount: parseFloat(editedAmount),
+      };
+
+      await updateDoc(doc(db, "items", item.id), updatedItem);
+      dispatch(updateItem(updatedItem));
+      setEditingId(null);
+
+      toast({
+        title: "Item updated successfully",
+        status: "success",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error updating item",
         description: error.message,
         status: "error",
         duration: 3000,
@@ -168,19 +208,60 @@ const ItemsList = ({ userId }) => {
               borderWidth={1}
               justify="space-between"
             >
-              <Text>{item.name}</Text>
-              <HStack>
-                <Text fontWeight="bold">
-                  ${item.amount?.toFixed(2) || "0.00"}
-                </Text>
-                <IconButton
-                  icon={<DeleteIcon />}
-                  size="sm"
-                  colorScheme="red"
-                  variant="ghost"
-                  onClick={() => handleDeleteItem(item.id)}
-                />
-              </HStack>
+              {editingId === item.id ? (
+                <>
+                  <Input
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    size="sm"
+                    w="40%"
+                  />
+                  <Input
+                    value={editedAmount}
+                    onChange={(e) => setEditedAmount(e.target.value)}
+                    size="sm"
+                    w="80px"
+                    type="number"
+                  />
+                  <HStack>
+                    <IconButton
+                      icon={<CheckIcon />}
+                      onClick={() => handleUpdateItem(item)}
+                      size="sm"
+                      colorScheme="blue"
+                    />
+                    <IconButton
+                      icon={<CloseIcon />}
+                      onClick={handleCancelEdit}
+                      size="sm"
+                      colorScheme="gray"
+                    />
+                  </HStack>
+                </>
+              ) : (
+                <>
+                  <Text>{item.name}</Text>
+                  <HStack>
+                    <Text fontWeight="bold">
+                      ${item.amount?.toFixed(2) || "0.00"}
+                    </Text>
+                    <IconButton
+                      icon={<EditIcon />}
+                      size="sm"
+                      colorScheme="blue"
+                      variant="ghost"
+                      onClick={() => handleEditClick(item)}
+                    />
+                    <IconButton
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteItem(item.id)}
+                    />
+                  </HStack>
+                </>
+              )}
             </HStack>
           ))
         ) : (
