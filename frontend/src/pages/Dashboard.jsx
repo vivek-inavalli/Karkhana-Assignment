@@ -29,14 +29,7 @@ const Dashboard = () => {
     const itemsTotal =
       items?.reduce((acc, item) => {
         console.log("Processing item:", item);
-        const amount = parseFloat(
-          item.amount ||
-            item.cost ||
-            item.price ||
-            item.value ||
-            item.total ||
-            0
-        );
+        const amount = parseFloat(item.amount || 0);
         console.log("Item amount:", amount);
         return acc + (isNaN(amount) ? 0 : amount);
       }, 0) || 0;
@@ -44,14 +37,7 @@ const Dashboard = () => {
     const otherCostsTotal =
       otherCosts?.reduce((acc, cost) => {
         console.log("Processing other cost:", cost);
-        const amount = parseFloat(
-          cost.amount ||
-            cost.cost ||
-            cost.price ||
-            cost.value ||
-            cost.total ||
-            0
-        );
+        const amount = parseFloat(cost.amount || 0);
         console.log("Other cost amount:", amount);
         return acc + (isNaN(amount) ? 0 : amount);
       }, 0) || 0;
